@@ -31,16 +31,21 @@ function modeCard(mode, title, desc, emoji) {
 
 function renderMenu() {
   const stats = getStats();
+
   app.innerHTML = `
     <div class="shell">
       <section class="hero panel">
         <div>
           <div class="eyebrow">Local-first • GitHub Pages ready</div>
           <h1>TicTac Universe</h1>
-          <p class="hero-text">Современные крестики-нолики для браузера: локальный PvP, игра против AI, большие поля и чистый адаптивный интерфейс.</p>
+          <p class="hero-text">
+            Современные крестики-нолики для браузера: локальный PvP, игра против AI,
+            большие поля и чистый адаптивный интерфейс.
+          </p>
         </div>
+
         <div class="hero-actions">
-          <button class="primary-btn" data-action="goto-setup">Играть</button>
+          <button class="primary-btn" data-action="start-game">Играть</button>
           <button class="ghost-btn" data-action="show-stats">Статистика</button>
         </div>
       </section>
@@ -60,6 +65,13 @@ function renderMenu() {
             ${presets.map(presetCard).join('')}
           </div>
         </article>
+      </section>
+
+      <section class="panel" style="padding: 24px; margin-top: 20px;">
+        <div class="section-title">Быстрый старт</div>
+        <div class="hero-actions">
+          <button class="primary-btn" data-action="start-game">Начать матч</button>
+        </div>
       </section>
 
       <section class="grid two-up compact-panels">
@@ -96,23 +108,29 @@ function statusText() {
 }
 
 function renderBoard() {
-  const cellSize = state.preset.size >= 10 ? 'compact' : state.preset.size >= 5 ? 'medium' : 'regular';
+  const cellSize =
+    state.preset.size >= 10 ? 'compact' : state.preset.size >= 5 ? 'medium' : 'regular';
 
   const boardHtml = state.board
-    .map((row, rowIndex) => row
-      .map((cell, colIndex) => {
-        const isWinning = state.winningCells.some(([r, c]) => r === rowIndex && c === colIndex);
-        return `
-          <button
-            class="cell ${cellSize} ${cell ? 'filled' : ''} ${isWinning ? 'winning' : ''}"
-            data-action="move"
-            data-row="${rowIndex}"
-            data-col="${colIndex}"
-            ${cell || state.winner || state.busy ? 'disabled' : ''}
-          >${cell}</button>
-        `;
-      })
-      .join(''))
+    .map((row, rowIndex) =>
+      row
+        .map((cell, colIndex) => {
+          const isWinning = state.winningCells.some(
+            ([r, c]) => r === rowIndex && c === colIndex
+          );
+
+          return `
+            <button
+              class="cell ${cellSize} ${cell ? 'filled' : ''} ${isWinning ? 'winning' : ''}"
+              data-action="move"
+              data-row="${rowIndex}"
+              data-col="${colIndex}"
+              ${cell || state.winner || state.busy ? 'disabled' : ''}
+            >${cell}</button>
+          `;
+        })
+        .join('')
+    )
     .join('');
 
   app.innerHTML = `
@@ -123,6 +141,7 @@ function renderBoard() {
           <h2>${state.preset.label}</h2>
           <p class="hero-text small">${statusText()}</p>
         </div>
+
         <div class="toolbar">
           <button class="ghost-btn" data-action="back-menu">Меню</button>
           <button class="ghost-btn" data-action="restart">Рестарт</button>
@@ -139,11 +158,18 @@ function renderBoard() {
       <section class="grid two-up compact-panels">
         <article class="panel note-panel">
           <div class="section-title">Правила матча</div>
-          <p>Поле ${state.preset.size}x${state.preset.size}. Чтобы победить, нужно собрать ${state.preset.target} символа подряд по горизонтали, вертикали или диагонали.</p>
+          <p>
+            Поле ${state.preset.size}x${state.preset.size}. Чтобы победить, нужно собрать
+            ${state.preset.target} символа подряд по горизонтали, вертикали или диагонали.
+          </p>
         </article>
+
         <article class="panel note-panel">
           <div class="section-title">Управление</div>
-          <p>Кликни или тапни по свободной клетке. Игра оптимизирована под мобильный браузер и отлично подходит для GitHub Pages.</p>
+          <p>
+            Кликни или тапни по свободной клетке. Игра оптимизирована под мобильный браузер
+            и отлично подходит для GitHub Pages.
+          </p>
         </article>
       </section>
     </div>
@@ -151,15 +177,19 @@ function renderBoard() {
 }
 
 function renderStatsModal() {
+  closeModal();
+
   const stats = getStats();
   const overlay = document.createElement('div');
   overlay.className = 'overlay';
+
   overlay.innerHTML = `
     <div class="modal panel">
       <div class="modal-header">
         <h3>Статистика</h3>
         <button class="icon-btn" data-action="close-modal">✕</button>
       </div>
+
       <div class="stats-grid">
         <div class="stats-card">
           <div class="section-title">PvP</div>
@@ -170,6 +200,7 @@ function renderStatsModal() {
             <div><span>Всего игр</span><strong>${stats.pvp.games}</strong></div>
           </div>
         </div>
+
         <div class="stats-card">
           <div class="section-title">AI</div>
           <div class="stats-list">
@@ -180,12 +211,14 @@ function renderStatsModal() {
           </div>
         </div>
       </div>
+
       <div class="modal-footer">
         <button class="ghost-btn" data-action="reset-stats">Сбросить</button>
         <button class="primary-btn" data-action="close-modal">Закрыть</button>
       </div>
     </div>
   `;
+
   document.body.appendChild(overlay);
 }
 
@@ -194,7 +227,7 @@ function closeModal() {
 }
 
 function updateScreen() {
-  if (state.screen === 'menu' || state.screen === 'setup') {
+  if (state.screen === 'menu') {
     renderMenu();
   } else {
     renderBoard();
@@ -209,10 +242,10 @@ function startGame() {
 
 function choosePreset(key) {
   const preset = presets.find((item) => item.key === key);
-  if (preset) {
-    state.preset = preset;
-    updateScreen();
-  }
+  if (!preset) return;
+
+  state.preset = preset;
+  updateScreen();
 }
 
 function chooseMode(mode) {
@@ -222,20 +255,24 @@ function chooseMode(mode) {
 
 function handleRoundEnd() {
   if (!state.winner) return;
+
   recordResult(state.mode, state.winner);
   updateScreen();
 }
 
 function maybeAiTurn() {
   if (state.mode !== 'ai' || state.currentPlayer !== 'O' || state.winner) return;
+
   state.busy = true;
   updateScreen();
 
   window.setTimeout(() => {
     const [row, col] = getAiMove(state.board, state.preset.target, 'O', 'X') || [];
+
     if (row !== undefined && col !== undefined) {
       state.busy = false;
       applyMove(state, row, col);
+
       if (state.winner) {
         handleRoundEnd();
       } else {
@@ -250,10 +287,12 @@ function maybeAiTurn() {
 
 function handleMove(row, col) {
   if (!applyMove(state, row, col)) return;
+
   if (state.winner) {
     handleRoundEnd();
     return;
   }
+
   updateScreen();
   maybeAiTurn();
 }
@@ -265,9 +304,9 @@ function wireEvents() {
 
     const action = actionTarget.dataset.action;
 
-    if (action === 'goto-setup') {
-      state.screen = 'setup';
-      updateScreen();
+    if (action === 'start-game') {
+      startGame();
+      maybeAiTurn();
       return;
     }
 
@@ -300,6 +339,7 @@ function wireEvents() {
 
     if (action === 'back-menu') {
       state.screen = 'menu';
+      closeModal();
       updateScreen();
       return;
     }
@@ -321,12 +361,12 @@ function wireEvents() {
 
     if (action === 'move') {
       handleMove(Number(actionTarget.dataset.row), Number(actionTarget.dataset.col));
-      return;
     }
   });
 
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') closeModal();
+
     if (event.key.toLowerCase() === 'n' && state.screen === 'game') {
       resetRound(state);
       updateScreen();
@@ -335,12 +375,11 @@ function wireEvents() {
   });
 
   document.addEventListener('dblclick', (event) => {
-    if (event.target.classList.contains('overlay')) closeModal();
+    if (event.target.classList.contains('overlay')) {
+      closeModal();
+    }
   });
 }
 
 wireEvents();
-updateScreen();
-startGame();
-state.screen = 'menu';
 updateScreen();
