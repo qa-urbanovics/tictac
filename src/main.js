@@ -5,6 +5,7 @@ import { getStats, recordResult, resetStats } from './storage.js';
 
 const state = createGameState();
 const app = document.querySelector('#app');
+state.lastMove = null;
 
 const THEME_KEY = 'tictac-theme';
 
@@ -97,18 +98,18 @@ function renderMenu() {
       <section class="hero hero-ios panel">
         ${logoMarkup()}
 
-        <div class="hero-right">
+        <div class="hero-right"> 
           <div class="theme-switcher">
-            ${themeButton('light', '☀ Light')}
-            ${themeButton('dark', '🌙 Dark')}
-            ${themeButton('auto', '🪄 Auto')}
+            ${themeButton('light', '☀')}
+            ${themeButton('dark', '🌙')}
+            ${themeButton('auto', '🪄')}
           </div>
 
           <div class="hero-actions">
             <button class="primary-btn" data-action="start-game">Играть</button>
             <button class="ghost-btn" data-action="show-stats">Статистика</button>
           </div>
-        </div>
+        </div> 
       </section>
 
       <section class="grid two-up">
@@ -197,12 +198,8 @@ function syncWinningLine() {
   const [startCell] = state.winningCells;
   const endCell = state.winningCells[state.winningCells.length - 1];
 
-  const startEl = boardEl.querySelector(
-    `[data-row="${startCell[0]}"][data-col="${startCell[1]}"]`
-  );
-  const endEl = boardEl.querySelector(
-    `[data-row="${endCell[0]}"][data-col="${endCell[1]}"]`
-  );
+  const startEl = boardEl.querySelector(`[data-row="${startCell[0]}"][data-col="${startCell[1]}"]`);
+  const endEl = boardEl.querySelector(`[data-row="${endCell[0]}"][data-col="${endCell[1]}"]`);
 
   if (!startEl || !endEl) return;
 
@@ -238,9 +235,10 @@ function renderBoard() {
     .map((row, rowIndex) =>
       row
         .map((cell, colIndex) => {
-          const isWinning = state.winningCells.some(
-            ([r, c]) => r === rowIndex && c === colIndex
-          );
+          const isWinning = state.winningCells.some(([r, c]) => r === rowIndex && c === colIndex);
+
+          const isLastMove =
+            state.lastMove && state.lastMove.row === rowIndex && state.lastMove.col === colIndex;
 
           let markClass = '';
           if (cell === 'X') markClass = 'mark-x';
@@ -248,13 +246,13 @@ function renderBoard() {
 
           return `
             <button
-              class="cell ${cellSize} ${cell ? 'filled' : ''} ${isWinning ? 'winning' : ''} ${markClass}"
+              class="cell ${cellSize} ${cell ? 'filled' : ''} ${isWinning ? 'winning' : ''} ${isLastMove ? 'last-move' : ''} ${markClass}"
               data-action="move"
               data-row="${rowIndex}"
               data-col="${colIndex}"
               ${cell || state.winner || state.busy ? 'disabled' : ''}
               aria-label="row ${rowIndex + 1} col ${colIndex + 1}"
-            >${cell}</button>
+            ><span class="cell-mark">${cell}</span></button>
           `;
         })
         .join('')
@@ -264,6 +262,11 @@ function renderBoard() {
   const lineHtml =
     state.winner && state.winner !== 'draw' && state.winningCells.length
       ? `<div class="win-line"></div>`
+      : '';
+
+  const burstHtml =
+    state.winner && state.winner !== 'draw'
+      ? `<div class="victory-burst" data-winner="${state.winner}"></div>`
       : '';
 
   const bannerHtml = state.winner
@@ -310,6 +313,7 @@ function renderBoard() {
             <div class="board board-ios" style="--size:${state.preset.size}">
               ${boardHtml}
             </div>
+            ${burstHtml}
             ${lineHtml}
           </div>
         </div>
@@ -384,6 +388,7 @@ function updateScreen() {
 
 function startGame() {
   state.screen = 'game';
+  state.lastMove = null;
   resetRound(state);
   updateScreen();
 }
@@ -417,7 +422,15 @@ function maybeAiTurn() {
 
     if (row !== undefined && col !== undefined) {
       state.busy = false;
+      const playerBeforeMove = state.currentPlayer;
+
       applyMove(state, row, col);
+
+      state.lastMove = {
+        row,
+        col,
+        player: playerBeforeMove,
+      };
 
       if (state.winner) {
         handleRoundEnd();
@@ -432,7 +445,15 @@ function maybeAiTurn() {
 }
 
 function handleMove(row, col) {
+  const playerBeforeMove = state.currentPlayer;
+
   if (!applyMove(state, row, col)) return;
+
+  state.lastMove = {
+    row,
+    col,
+    player: playerBeforeMove,
+  };
 
   if (state.winner) {
     handleRoundEnd();
@@ -491,12 +512,14 @@ function wireEvents() {
 
     if (action === 'back-menu') {
       state.screen = 'menu';
+      state.lastMove = null;
       closeModal();
       updateScreen();
       return;
     }
 
     if (action === 'restart') {
+      state.lastMove = null;
       resetRound(state);
       updateScreen();
       maybeAiTurn();
@@ -505,6 +528,7 @@ function wireEvents() {
 
     if (action === 'play-again') {
       const starter = state.winner === 'draw' ? 'X' : state.winner;
+      state.lastMove = null;
       resetRound(state, starter === 'draw' ? 'X' : starter);
       updateScreen();
       maybeAiTurn();
