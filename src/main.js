@@ -1,5 +1,3 @@
-// src/main.js
-
 import './styles.css';
 import { getAiMove } from './ai.js';
 import { createGameState, presets, resetRound, applyMove } from './game.js';
@@ -8,21 +6,73 @@ import { getStats, recordResult, resetStats } from './storage.js';
 const state = createGameState();
 const app = document.querySelector('#app');
 
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
+const THEME_KEY = 'tictac-theme';
+
+function getStoredTheme() {
+  return localStorage.getItem(THEME_KEY) || 'auto';
+}
+
+function applyTheme(theme) {
+  const resolved =
+    theme === 'auto'
+      ? window.matchMedia('(prefers-color-scheme: light)').matches
+        ? 'light'
+        : 'dark'
+      : theme;
+
+  document.documentElement.dataset.theme = resolved;
+  localStorage.setItem(THEME_KEY, theme);
+  state.theme = theme;
+}
+
+function themeButton(theme, label) {
+  const active = (state.theme || 'auto') === theme ? 'active' : '';
+  return `
+    <button class="theme-chip ${active}" data-action="set-theme" data-theme="${theme}">
+      ${label}
+    </button>
+  `;
+}
+
+function logoMarkup() {
+  return `
+    <div class="brand-lockup">
+      <div class="brand-logo" aria-hidden="true">
+        <svg viewBox="0 0 96 96" role="img" class="logo-svg">
+          <defs>
+            <linearGradient id="logoGradA" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="var(--accent)" />
+              <stop offset="100%" stop-color="var(--accent-2)" />
+            </linearGradient>
+            <linearGradient id="logoGradB" x1="100%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="var(--accent-3)" />
+              <stop offset="100%" stop-color="var(--accent)" />
+            </linearGradient>
+          </defs>
+
+          <rect x="10" y="10" width="76" height="76" rx="24" fill="rgba(255,255,255,0.08)" />
+          <path d="M30 30 L66 66 M66 30 L30 66" stroke="url(#logoGradA)" stroke-width="10" stroke-linecap="round" />
+          <circle cx="68" cy="28" r="10" fill="none" stroke="url(#logoGradB)" stroke-width="8" />
+        </svg>
+      </div>
+
+      <div class="brand-copy">
+        <div class="eyebrow">Local-first • iOS style • GitHub Pages ready</div>
+        <h1>TicTac Universe</h1>
+        <p class="hero-text">
+          Современные крестики-нолики для браузера: локальный PvP, игра против AI,
+          большие поля, светлая и тёмная тема и плавный интерфейс в стиле iOS.
+        </p>
+      </div>
+    </div>
+  `;
 }
 
 function presetCard(preset) {
   const active = state.preset.key === preset.key ? 'active' : '';
-
   return `
     <button class="select-card ${active}" data-action="set-preset" data-preset="${preset.key}">
-      <span class="card-title">${escapeHtml(preset.label)}</span>
+      <span class="card-title">${preset.label}</span>
       <span class="card-meta">Поле ${preset.size}x${preset.size} · собрать ${preset.target}</span>
     </button>
   `;
@@ -30,136 +80,84 @@ function presetCard(preset) {
 
 function modeCard(mode, title, desc, emoji) {
   const active = state.mode === mode ? 'active' : '';
-
   return `
-    <button class="select-card ${active}" data-action="set-mode" data-mode="${mode}">
-      <span class="card-title">${emoji} ${escapeHtml(title)}</span>
-      <span class="card-meta">${escapeHtml(desc)}</span>
+    <button class="mode-card ${active}" data-action="set-mode" data-mode="${mode}">
+      <span class="mode-icon">${emoji}</span>
+      <span class="mode-copy">
+        <span class="card-title">${title}</span>
+        <span class="card-meta">${desc}</span>
+      </span>
     </button>
   `;
-}
-
-function getStatusMeta() {
-  if (state.winner === 'draw') {
-    return {
-      text: 'Ничья',
-      className: 'draw',
-    };
-  }
-
-  if (state.winner === 'X') {
-    return {
-      text: state.mode === 'ai' ? 'Победил игрок' : 'Победил X',
-      className: 'win',
-    };
-  }
-
-  if (state.winner === 'O') {
-    return {
-      text: state.mode === 'ai' ? 'Победил AI' : 'Победил O',
-      className: 'win',
-    };
-  }
-
-  if (state.mode === 'ai' && state.currentPlayer === 'O') {
-    return {
-      text: 'Ход компьютера…',
-      className: 'busy',
-    };
-  }
-
-  return {
-    text: `Ход: ${state.currentPlayer}`,
-    className: '',
-  };
 }
 
 function renderMenu() {
   const stats = getStats();
 
   app.innerHTML = `
-    <div class="shell menu-shell">
-      <section class="panel hero-panel">
-        <div class="eyebrow">Local-first • GitHub Pages ready</div>
-        <h1>TicTac Universe</h1>
-        <p class="hero-copy">
-          Стильные современные крестики-нолики для браузера:
-          локальный PvP, игра против AI, большие поля и аккуратный адаптивный интерфейс.
-        </p>
+    <div class="shell">
+      <section class="hero hero-ios panel">
+        ${logoMarkup()}
 
-        <div class="hero-actions">
-          <button class="primary-btn" data-action="start-game">Играть</button>
-          <button class="secondary-btn" data-action="show-stats">Статистика</button>
+        <div class="hero-right">
+          <div class="theme-switcher">
+            ${themeButton('light', '☀ Light')}
+            ${themeButton('dark', '🌙 Dark')}
+            ${themeButton('auto', '🪄 Auto')}
+          </div>
+
+          <div class="hero-actions">
+            <button class="primary-btn" data-action="start-game">Играть</button>
+            <button class="ghost-btn" data-action="show-stats">Статистика</button>
+          </div>
         </div>
       </section>
 
       <section class="grid two-up">
-        <article class="panel section-card">
+        <article class="panel elevated-panel">
           <div class="section-title">Режим игры</div>
-          <div class="choice-grid modes">
-            ${modeCard('pvp', '1 vs 1', 'Два игрока на одном устройстве', '⚔️')}
+          <div class="cards-stack">
+            ${modeCard('pvp', '1 vs 1', 'Два игрока на одном устройстве', '👥')}
             ${modeCard('ai', 'vs Computer', 'Игрок против компьютера', '🤖')}
           </div>
         </article>
 
-        <article class="panel section-card">
+        <article class="panel elevated-panel">
           <div class="section-title">Размер поля</div>
-          <div class="choice-grid presets">
+          <div class="cards-stack">
             ${presets.map(presetCard).join('')}
           </div>
         </article>
       </section>
 
-      <section class="grid two-up">
-        <article class="panel section-card">
+      <section class="panel launch-panel">
+        <div>
           <div class="section-title">Быстрый старт</div>
-          <p class="hero-text small">
-            Выбери режим, размер поля и начни матч. Все результаты сохраняются локально в браузере.
-          </p>
-          <div class="hero-actions">
-            <button class="primary-btn" data-action="start-game">Начать матч</button>
+          <p class="hero-text small">Выбери режим, тему и размер поля, потом запускай матч.</p>
+        </div>
+        <div class="hero-actions">
+          <button class="primary-btn" data-action="start-game">Начать матч</button>
+        </div>
+      </section>
+
+      <section class="grid two-up compact-panels">
+        <article class="panel stat-panel">
+          <div class="section-title">Локальная статистика PvP</div>
+          <div class="mini-stats">
+            <div><span>X</span><strong>${stats.pvp.x}</strong></div>
+            <div><span>O</span><strong>${stats.pvp.o}</strong></div>
+            <div><span>Ничьи</span><strong>${stats.pvp.draws}</strong></div>
+            <div><span>Игр</span><strong>${stats.pvp.games}</strong></div>
           </div>
         </article>
 
-        <article class="panel section-card">
-          <div class="section-title">Локальная статистика PvP</div>
-          <div class="stats-grid">
-            <div class="stat-box">
-              <div class="stat-label">X</div>
-              <div class="stat-value">${stats.pvp.x}</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-label">O</div>
-              <div class="stat-value">${stats.pvp.o}</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-label">Ничьи</div>
-              <div class="stat-value">${stats.pvp.draws}</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-label">Игр</div>
-              <div class="stat-value">${stats.pvp.games}</div>
-            </div>
-          </div>
-
-          <div class="section-title" style="margin-top:20px;">Локальная статистика AI</div>
-          <div class="stats-grid">
-            <div class="stat-box">
-              <div class="stat-label">Игрок</div>
-              <div class="stat-value">${stats.ai.player}</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-label">AI</div>
-              <div class="stat-value">${stats.ai.ai}</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-label">Ничьи</div>
-              <div class="stat-value">${stats.ai.draws}</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-label">Игр</div>
-              <div class="stat-value">${stats.ai.games}</div>
-            </div>
+        <article class="panel stat-panel">
+          <div class="section-title">Локальная статистика AI</div>
+          <div class="mini-stats">
+            <div><span>Игрок</span><strong>${stats.ai.player}</strong></div>
+            <div><span>AI</span><strong>${stats.ai.ai}</strong></div>
+            <div><span>Ничьи</span><strong>${stats.ai.draws}</strong></div>
+            <div><span>Игр</span><strong>${stats.ai.games}</strong></div>
           </div>
         </article>
       </section>
@@ -167,63 +165,76 @@ function renderMenu() {
   `;
 }
 
-function getCellSizeClass() {
-  if (state.preset.size >= 10) return 'compact';
-  if (state.preset.size >= 5) return 'medium';
-  return 'regular';
+function statusText() {
+  if (state.winner === 'draw') return 'Ничья';
+  if (state.winner === 'X') return state.mode === 'ai' ? 'Победил игрок' : 'Победил X';
+  if (state.winner === 'O') return state.mode === 'ai' ? 'Победил AI' : 'Победил O';
+  if (state.mode === 'ai' && state.currentPlayer === 'O') return 'Ход компьютера…';
+  return `Ход: ${state.currentPlayer}`;
 }
 
-function getCellMarkClass(cell) {
-  if (cell === 'X') return 'mark-x';
-  if (cell === 'O') return 'mark-o';
-  return '';
+function winnerTitle() {
+  if (state.winner === 'draw') return 'Ничья';
+  if (state.mode === 'ai' && state.winner === 'X') return 'Ты победил';
+  if (state.mode === 'ai' && state.winner === 'O') return 'Компьютер победил';
+  return `Победил ${state.winner}`;
 }
 
-function getWinningLineStyle() {
-  const cells = state.winningCells;
+function winnerSubtitle() {
+  if (state.winner === 'draw') return 'Поле заполнено. Попробуй ещё один раунд.';
+  if (state.mode === 'ai' && state.winner === 'X') return 'Отличный ход. Серия собрана идеально.';
+  if (state.mode === 'ai' && state.winner === 'O') return 'AI оказался сильнее в этом раунде.';
+  return 'Красивое завершение партии.';
+}
 
-  if (!Array.isArray(cells) || cells.length < 2) {
-    return '';
-  }
+function syncWinningLine() {
+  if (!state.winner || state.winner === 'draw' || !state.winningCells.length) return;
 
-  const first = cells[0];
-  const last = cells[cells.length - 1];
-  const size = state.preset.size;
+  const layerEl = document.querySelector('.board-layer');
+  const boardEl = document.querySelector('.board');
+  const lineEl = document.querySelector('.win-line');
 
-  if (!first || !last || !size) {
-    return '';
-  }
+  if (!layerEl || !boardEl || !lineEl) return;
 
-  const [r1, c1] = first;
-  const [r2, c2] = last;
+  const [startCell] = state.winningCells;
+  const endCell = state.winningCells[state.winningCells.length - 1];
 
-  const percentPerCell = 100 / size;
-  const centerOffset = percentPerCell / 2;
+  const startEl = boardEl.querySelector(
+    `[data-row="${startCell[0]}"][data-col="${startCell[1]}"]`
+  );
+  const endEl = boardEl.querySelector(
+    `[data-row="${endCell[0]}"][data-col="${endCell[1]}"]`
+  );
 
-  const startX = c1 * percentPerCell + centerOffset;
-  const startY = r1 * percentPerCell + centerOffset;
-  const endX = c2 * percentPerCell + centerOffset;
-  const endY = r2 * percentPerCell + centerOffset;
+  if (!startEl || !endEl) return;
 
-  const deltaX = endX - startX;
-  const deltaY = endY - startY;
-  const length = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-  const angle = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
+  const layerRect = layerEl.getBoundingClientRect();
+  const startRect = startEl.getBoundingClientRect();
+  const endRect = endEl.getBoundingClientRect();
 
-  const centerX = (startX + endX) / 2;
-  const centerY = (startY + endY) / 2;
+  const startX = startRect.left - layerRect.left + startRect.width / 2;
+  const startY = startRect.top - layerRect.top + startRect.height / 2;
+  const endX = endRect.left - layerRect.left + endRect.width / 2;
+  const endY = endRect.top - layerRect.top + endRect.height / 2;
 
-  return `
-    --line-left:${centerX}%;
-    --line-top:${centerY}%;
-    --line-width:calc(${length}% + 10px);
-    --line-rotation:${angle}deg;
-  `;
+  const dx = endX - startX;
+  const dy = endY - startY;
+  const length = Math.sqrt(dx * dx + dy * dy);
+  const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+
+  const thickness = Math.max(4, Math.min(startRect.width, startRect.height) * 0.1);
+
+  lineEl.dataset.winner = state.winner;
+  lineEl.style.left = `${startX}px`;
+  lineEl.style.top = `${startY}px`;
+  lineEl.style.width = `${length}px`;
+  lineEl.style.height = `${thickness}px`;
+  lineEl.style.transform = `translateY(-50%) rotate(${angle}deg)`;
 }
 
 function renderBoard() {
-  const cellSize = getCellSizeClass();
-  const status = getStatusMeta();
+  const cellSize =
+    state.preset.size >= 10 ? 'compact' : state.preset.size >= 5 ? 'medium' : 'regular';
 
   const boardHtml = state.board
     .map((row, rowIndex) =>
@@ -233,79 +244,86 @@ function renderBoard() {
             ([r, c]) => r === rowIndex && c === colIndex
           );
 
-          const classes = [
-            'board-cell',
-            cellSize,
-            getCellMarkClass(cell),
-            isWinning ? 'winning' : '',
-          ]
-            .filter(Boolean)
-            .join(' ');
+          let markClass = '';
+          if (cell === 'X') markClass = 'mark-x';
+          if (cell === 'O') markClass = 'mark-o';
 
           return `
             <button
-              class="${classes}"
+              class="cell ${cellSize} ${cell ? 'filled' : ''} ${isWinning ? 'winning' : ''} ${markClass}"
               data-action="move"
               data-row="${rowIndex}"
               data-col="${colIndex}"
               ${cell || state.winner || state.busy ? 'disabled' : ''}
-              aria-label="Клетка ${rowIndex + 1}-${colIndex + 1}"
-            >${escapeHtml(cell)}</button>
+              aria-label="row ${rowIndex + 1} col ${colIndex + 1}"
+            >${cell}</button>
           `;
         })
         .join('')
     )
     .join('');
 
-  const showWinLine =
-    state.winner && state.winner !== 'draw' && state.winningCells.length >= 2;
+  const lineHtml =
+    state.winner && state.winner !== 'draw' && state.winningCells.length
+      ? `<div class="win-line"></div>`
+      : '';
+
+  const bannerHtml = state.winner
+    ? `
+      <div class="result-banner ${state.winner === 'draw' ? 'draw' : 'winner'}">
+        <div class="result-badge">${state.winner === 'draw' ? 'DRAW' : 'WIN'}</div>
+        <div class="result-copy">
+          <h3>${winnerTitle()}</h3>
+          <p>${winnerSubtitle()}</p>
+        </div>
+        <div class="result-actions">
+          <button class="primary-btn" data-action="play-again">Играть ещё</button>
+          <button class="ghost-btn" data-action="back-menu">В меню</button>
+        </div>
+      </div>
+    `
+    : '';
 
   app.innerHTML = `
     <div class="shell game-shell">
-      <section class="panel game-topbar">
+      <section class="panel game-topbar ios-bar">
         <div>
           <div class="eyebrow">${state.mode === 'ai' ? 'Player vs Computer' : 'Local 1 vs 1'}</div>
-          <h2>${escapeHtml(state.preset.label)}</h2>
-          <div class="status-badge ${status.className}">
-            ${escapeHtml(status.text)}
-          </div>
+          <h2>${state.preset.label}</h2>
+          <p class="hero-text small">${statusText()}</p>
         </div>
 
         <div class="toolbar">
+          <div class="theme-switcher compact">
+            ${themeButton('light', '☀')}
+            ${themeButton('dark', '🌙')}
+            ${themeButton('auto', '🪄')}
+          </div>
           <button class="ghost-btn" data-action="back-menu">Меню</button>
           <button class="ghost-btn" data-action="restart">Рестарт</button>
-          ${state.winner ? '<button class="primary-btn" data-action="play-again">Еще раз</button>' : ''}
         </div>
       </section>
 
-      <section class="panel board-panel">
+      ${bannerHtml}
+
+      <section class="panel board-panel board-stage">
         <div class="board-wrap">
-          <div class="board" style="--size:${state.preset.size}">
-            ${boardHtml}
+          <div class="board-layer">
+            <div class="board board-ios" style="--size:${state.preset.size}">
+              ${boardHtml}
+            </div>
+            ${lineHtml}
           </div>
-          ${showWinLine ? `<div class="win-line" style="${getWinningLineStyle()}"></div>` : ''}
         </div>
-      </section>
-
-      <section class="grid two-up compact-panels">
-        <article class="panel note-panel">
-          <div class="section-title">Правила матча</div>
-          <p>
-            Поле ${state.preset.size}x${state.preset.size}. Чтобы победить, нужно собрать
-            ${state.preset.target} символа подряд по горизонтали, вертикали или диагонали.
-          </p>
-        </article>
-
-        <article class="panel note-panel">
-          <div class="section-title">Управление</div>
-          <p>
-            Кликни или тапни по свободной клетке. Размер клеток теперь фиксирован,
-            поэтому поле выглядит стабильнее и не дергается при ходе.
-          </p>
-        </article>
       </section>
     </div>
   `;
+
+  if (state.winner && state.winner !== 'draw' && state.winningCells.length) {
+    requestAnimationFrame(() => {
+      syncWinningLine();
+    });
+  }
 }
 
 function renderStatsModal() {
@@ -316,39 +334,36 @@ function renderStatsModal() {
   overlay.className = 'overlay';
 
   overlay.innerHTML = `
-    <div class="modal" role="dialog" aria-modal="true" aria-label="Статистика">
-      <div class="modal-head">
-        <div>
-          <div class="eyebrow">Local stats</div>
-          <h2>Статистика</h2>
+    <div class="modal panel">
+      <div class="modal-header">
+        <h3>Статистика</h3>
+        <button class="icon-btn" data-action="close-modal">✕</button>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stats-card">
+          <div class="section-title">PvP</div>
+          <div class="stats-list">
+            <div><span>Победы X</span><strong>${stats.pvp.x}</strong></div>
+            <div><span>Победы O</span><strong>${stats.pvp.o}</strong></div>
+            <div><span>Ничьи</span><strong>${stats.pvp.draws}</strong></div>
+            <div><span>Всего игр</span><strong>${stats.pvp.games}</strong></div>
+          </div>
         </div>
-        <button class="icon-btn" data-action="close-modal" aria-label="Закрыть">✕</button>
+
+        <div class="stats-card">
+          <div class="section-title">AI</div>
+          <div class="stats-list">
+            <div><span>Победы игрока</span><strong>${stats.ai.player}</strong></div>
+            <div><span>Победы AI</span><strong>${stats.ai.ai}</strong></div>
+            <div><span>Ничьи</span><strong>${stats.ai.draws}</strong></div>
+            <div><span>Всего игр</span><strong>${stats.ai.games}</strong></div>
+          </div>
+        </div>
       </div>
 
-      <div class="modal-grid">
-        <section class="modal-section">
-          <h3>PvP</h3>
-          <div class="modal-stats">
-            <div class="modal-stat"><span>Победы X</span><strong>${stats.pvp.x}</strong></div>
-            <div class="modal-stat"><span>Победы O</span><strong>${stats.pvp.o}</strong></div>
-            <div class="modal-stat"><span>Ничьи</span><strong>${stats.pvp.draws}</strong></div>
-            <div class="modal-stat"><span>Всего игр</span><strong>${stats.pvp.games}</strong></div>
-          </div>
-        </section>
-
-        <section class="modal-section">
-          <h3>AI</h3>
-          <div class="modal-stats">
-            <div class="modal-stat"><span>Победы игрока</span><strong>${stats.ai.player}</strong></div>
-            <div class="modal-stat"><span>Победы AI</span><strong>${stats.ai.ai}</strong></div>
-            <div class="modal-stat"><span>Ничьи</span><strong>${stats.ai.draws}</strong></div>
-            <div class="modal-stat"><span>Всего игр</span><strong>${stats.ai.games}</strong></div>
-          </div>
-        </section>
-      </div>
-
-      <div class="modal-actions">
-        <button class="secondary-btn" data-action="reset-stats">Сбросить</button>
+      <div class="modal-footer">
+        <button class="ghost-btn" data-action="reset-stats">Сбросить</button>
         <button class="primary-btn" data-action="close-modal">Закрыть</button>
       </div>
     </div>
@@ -364,10 +379,9 @@ function closeModal() {
 function updateScreen() {
   if (state.screen === 'menu') {
     renderMenu();
-    return;
+  } else {
+    renderBoard();
   }
-
-  renderBoard();
 }
 
 function startGame() {
@@ -379,7 +393,6 @@ function startGame() {
 function choosePreset(key) {
   const preset = presets.find((item) => item.key === key);
   if (!preset) return;
-
   state.preset = preset;
   updateScreen();
 }
@@ -391,15 +404,12 @@ function chooseMode(mode) {
 
 function handleRoundEnd() {
   if (!state.winner) return;
-
   recordResult(state.mode, state.winner);
   updateScreen();
 }
 
 function maybeAiTurn() {
-  if (state.mode !== 'ai' || state.currentPlayer !== 'O' || state.winner) {
-    return;
-  }
+  if (state.mode !== 'ai' || state.currentPlayer !== 'O' || state.winner) return;
 
   state.busy = true;
   updateScreen();
@@ -407,9 +417,8 @@ function maybeAiTurn() {
   window.setTimeout(() => {
     const [row, col] = getAiMove(state.board, state.preset.target, 'O', 'X') || [];
 
-    state.busy = false;
-
     if (row !== undefined && col !== undefined) {
+      state.busy = false;
       applyMove(state, row, col);
 
       if (state.winner) {
@@ -417,12 +426,11 @@ function maybeAiTurn() {
       } else {
         updateScreen();
       }
-
-      return;
+    } else {
+      state.busy = false;
+      updateScreen();
     }
-
-    updateScreen();
-  }, 260);
+  }, 280);
 }
 
 function handleMove(row, col) {
@@ -457,6 +465,12 @@ function wireEvents() {
 
     if (action === 'set-preset') {
       choosePreset(actionTarget.dataset.preset);
+      return;
+    }
+
+    if (action === 'set-theme') {
+      applyTheme(actionTarget.dataset.theme);
+      updateScreen();
       return;
     }
 
@@ -505,9 +519,7 @@ function wireEvents() {
   });
 
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') {
-      closeModal();
-    }
+    if (event.key === 'Escape') closeModal();
 
     if (event.key.toLowerCase() === 'n' && state.screen === 'game') {
       resetRound(state);
@@ -521,7 +533,24 @@ function wireEvents() {
       closeModal();
     }
   });
+
+  window.addEventListener('resize', () => {
+    if (state.screen === 'game' && state.winner && state.winner !== 'draw') {
+      requestAnimationFrame(() => {
+        syncWinningLine();
+      });
+    }
+  });
+
+  window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+    if ((state.theme || 'auto') === 'auto') {
+      applyTheme('auto');
+      updateScreen();
+    }
+  });
 }
 
+state.theme = getStoredTheme();
+applyTheme(state.theme);
 wireEvents();
 updateScreen();
