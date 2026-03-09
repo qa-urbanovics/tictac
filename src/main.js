@@ -57,11 +57,9 @@ function logoMarkup() {
       </div>
 
       <div class="brand-copy">
-        <div class="eyebrow">Local-first • iOS style • GitHub Pages ready</div>
-        <h1>TicTac Universe</h1>
+        <h1>TicTac</h1>
         <p class="hero-text">
-          Современные крестики-нолики для браузера: локальный PvP, игра против AI,
-          большие поля, светлая и тёмная тема и плавный интерфейс в стиле iOS.
+          Современные крестики-нолики.
         </p>
       </div>
     </div>
