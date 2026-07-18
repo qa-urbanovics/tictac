@@ -148,10 +148,90 @@ export function heuristicMove(board, target, aiSymbol = 'O', humanSymbol = 'X') 
   return randomItem(bestMoves);
 }
 
-export function getAiMove(board, target, aiSymbol = 'O', humanSymbol = 'X') {
-  if (board.length === 3) {
-    return minimaxMove(board, aiSymbol, humanSymbol) || heuristicMove(board, target, aiSymbol, humanSymbol);
+function heuristicMoveEasy(board, target, aiSymbol = 'O', humanSymbol = 'X') {
+  const moves = getAvailableMoves(board);
+  if (moves.length === 0) return null;
+
+  let bestScore = -Infinity;
+  let bestMoves = [];
+
+  for (const [row, col] of moves) {
+    const attack = scoreMove(board, row, col, target, aiSymbol);
+    const defense = scoreMove(board, row, col, target, humanSymbol);
+    const score = attack * 0.8 + defense;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestMoves = [[row, col]];
+    } else if (score === bestScore) {
+      bestMoves.push([row, col]);
+    }
   }
 
+  return randomItem(bestMoves);
+}
+
+function canWinNextMove(board, target, symbol) {
+  const moves = getAvailableMoves(board);
+  for (const [row, col] of moves) {
+    board[row][col] = symbol;
+    const s = scoreMove(board, row, col, target, symbol);
+    board[row][col] = '';
+    if (s >= 100000) return [row, col];
+  }
+  return null;
+}
+
+function heuristicMoveHard(board, target, aiSymbol = 'O', humanSymbol = 'X') {
+  const threatBlock = canWinNextMove(board, target, humanSymbol);
+  if (threatBlock) {
+    board[threatBlock[0]][threatBlock[1]] = aiSymbol;
+    const selfWin = scoreMove(board, threatBlock[0], threatBlock[1], target, aiSymbol);
+    board[threatBlock[0]][threatBlock[1]] = '';
+  }
+
+  const winMove = canWinNextMove(board, target, aiSymbol);
+  if (winMove) return winMove;
+
+  if (threatBlock) return threatBlock;
+
   return heuristicMove(board, target, aiSymbol, humanSymbol);
+}
+
+function minimaxWithRandomness(board, randomChance, aiSymbol, humanSymbol) {
+  if (Math.random() < randomChance) {
+    const moves = getAvailableMoves(board);
+    if (moves.length > 0) return randomItem(moves);
+  }
+  return minimaxMove(board, aiSymbol, humanSymbol);
+}
+
+export function getAiMoveWithDifficulty(board, target, difficulty = 'hard', aiSymbol = 'O', humanSymbol = 'X') {
+  const is3x3 = board.length === 3;
+
+  if (difficulty === 'easy') {
+    if (is3x3) {
+      return minimaxWithRandomness(board, 0.4, aiSymbol, humanSymbol)
+        || heuristicMoveEasy(board, target, aiSymbol, humanSymbol);
+    }
+    return heuristicMoveEasy(board, target, aiSymbol, humanSymbol);
+  }
+
+  if (difficulty === 'medium') {
+    if (is3x3) {
+      return minimaxWithRandomness(board, 0.15, aiSymbol, humanSymbol)
+        || heuristicMove(board, target, aiSymbol, humanSymbol);
+    }
+    return heuristicMove(board, target, aiSymbol, humanSymbol);
+  }
+
+  if (is3x3) {
+    return minimaxMove(board, aiSymbol, humanSymbol)
+      || heuristicMove(board, target, aiSymbol, humanSymbol);
+  }
+  return heuristicMoveHard(board, target, aiSymbol, humanSymbol);
+}
+
+export function getAiMove(board, target, aiSymbol = 'O', humanSymbol = 'X') {
+  return getAiMoveWithDifficulty(board, target, 'hard', aiSymbol, humanSymbol);
 }

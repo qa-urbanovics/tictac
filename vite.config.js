@@ -1,5 +1,9 @@
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  base: '/tictac/',
+  base: './',
+  build: {
+    outDir: 'dist',
+    assetsInlineLimit: 0,
+  },
 })
