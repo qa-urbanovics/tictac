@@ -152,9 +152,9 @@ button {
 
 .menu-screen {
   max-width: 420px;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 24px;
-  padding-top: calc(40px + env(safe-area-inset-top, 0px));
+  padding-top: calc(20px + env(safe-area-inset-top, 0px));
   padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
 }
 
@@ -625,20 +625,30 @@ button {
 /* Hover preview */
 .cell.preview-x::after {
   content: 'X';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
   font-weight: 900;
   line-height: 1;
   color: var(--x);
   opacity: 0.1;
   font-size: inherit;
+  pointer-events: none;
 }
 
 .cell.preview-o::after {
   content: 'O';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
   font-weight: 900;
   line-height: 1;
   color: var(--o);
   opacity: 0.1;
   font-size: inherit;
+  pointer-events: none;
 }
 
 /* Winning cells */
@@ -1012,7 +1022,7 @@ button {
 
 /* iPad mini (744px+) */
 @media (min-width: 744px) {
-  .menu-screen { max-width: 480px; gap: 32px; }
+  .menu-screen { max-width: 480px; gap: 32px; justify-content: center; }
   .title { font-size: 3.2rem; }
   .logo-mark { width: 92px; height: 92px; border-radius: 26px; margin-bottom: 22px; }
   .logo-svg { width: 58px; height: 58px; }
